@@ -38,10 +38,10 @@ linux:
 
 .PHONY: windows
 windows:
-	$(WINDOWS_AMD64) $(GO_BUILD_CMD) -o server_windows_amd64 $(SERVER)
-	$(WINDOWS_AMD64v3) $(GO_BUILD_CMD) -o server_windows_amd64v3 $(SERVER)
-	$(WINDOWS_AMD64) $(GO_BUILD_CMD) -o client_windows_amd64 $(CLIENT)
-	$(WINDOWS_AMD64v3) $(GO_BUILD_CMD) -o client_windows_amd64v3 $(CLIENT)
+	$(WINDOWS_AMD64) $(GO_BUILD_CMD) -o server_windows_amd64.exe $(SERVER)
+	$(WINDOWS_AMD64v3) $(GO_BUILD_CMD) -o server_windows_amd64v3.exe $(SERVER)
+	$(WINDOWS_AMD64) $(GO_BUILD_CMD) -o client_windows_amd64.exe $(CLIENT)
+	$(WINDOWS_AMD64v3) $(GO_BUILD_CMD) -o client_windows_amd64v3.exe $(CLIENT)
 
 .PHONY: darwin
 darwin:
