@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package tunnel;
+
+option go_package = "tunnel/tunnel";
+
+enum Type {
+  Resverse = 0;
+  Register = 1;
+  Connection = 2;
+  Response = 3;
+  Ok = 4;
+  Error = 5;
+}
+
+message Device { string uuid = 1; }
+
+message Connect {
+  string target = 1;
+  uint64 id = 3;
+  string address = 4;
+  uint32 port = 2;
+}
+
+message ConnectResponse {
+  string uuid = 1;
+  uint64 connid = 2;
+}
+
+message OkMsg {}
+message ErrorMsg { string msg = 1; }
+
+message Request {
+  Type type = 1;
+  oneof payload {
+    Device device = 2;
+    Connect connect = 3;
+    ConnectResponse connect_response = 4;
+    OkMsg ok = 5;
+    ErrorMsg error = 6;
+  }
+}
