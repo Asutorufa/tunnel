@@ -79,6 +79,7 @@ func (c *Client) Register() error {
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
 
 	req := &Request{
 		Type: Type_Register,
@@ -157,7 +158,12 @@ func (c *Client) NewConn(id uint64) (net.Conn, error) {
 		return nil, err
 	}
 
-	binary.Write(conn, binary.BigEndian, uint64(len(data)))
+	err = binary.Write(conn, binary.BigEndian, uint64(len(data)))
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
 	_, err = conn.Write(data)
 	if err != nil {
 		conn.Close()

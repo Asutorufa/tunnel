@@ -25,7 +25,7 @@ DARWIN_AMD64=GOOS=darwin GOARCH=amd64
 DARWIN_AMD64v3=GOOS=darwin GOARCH=amd64 GOAMD64=v3
 WINDOWS_AMD64=GOOS=windows GOARCH=amd64
 WINDOWS_AMD64v3=GOOS=windows GOARCH=amd64 GOAMD64=v3
-
+ANDROID_ARM64=GOOS=android GOARCH=arm64
 SERVER=-v ./cmd/server/...
 CLIENT=-v ./cmd/client/...
 
@@ -35,6 +35,11 @@ linux:
 	$(LINUX_AMD64v3) $(GO_BUILD_CMD) -o server_linux_amd64v3 $(SERVER)
 	$(LINUX_AMD64) $(GO_BUILD_CMD) -o client_linux_amd64 $(CLIENT)
 	$(LINUX_AMD64v3) $(GO_BUILD_CMD) -o client_linux_amd64v3 $(CLIENT)
+
+.PHONY: android
+android:
+	$(ANDROID_ARM64) $(GO_BUILD_CMD) -o server_android_arm64 $(SERVER)
+	$(ANDROID_ARM64) $(GO_BUILD_CMD) -o client_android_arm64 $(CLIENT)
 
 .PHONY: windows
 windows:

@@ -59,6 +59,49 @@ func (s *ServerM) Handle(c net.Conn) error {
 	return fmt.Errorf("unknown type: %d", req.GetType())
 }
 
+func (c *ServerM) forward(host string, t Target) error {
+	lis, err := net.Listen("tcp", host)
+	if err != nil {
+		return err
+	}
+
+	log.Println("new server", lis.Addr(), "target", t)
+
+	for {
+		conn, err := lis.Accept()
+		if err != nil {
+			return err
+		}
+
+		go func() {
+			err = c.ConnectT(conn, &Request{
+				Type: Type_Connection,
+				Payload: &Request_Connect{
+					Connect: &Connect{
+						Target:  t.UUID,
+						Address: t.Address,
+						Port:    uint32(t.Port),
+					},
+				},
+			})
+			if err != nil {
+				log.Println(err)
+			}
+
+		}()
+	}
+}
+
+func (c *ServerM) Forward(Rule map[string]Target) {
+	for h, v := range Rule {
+		go func(h string, v Target) {
+			if err := c.forward(h, v); err != nil {
+				log.Println(err)
+			}
+		}(h, v)
+	}
+}
+
 func getRequest(c net.Conn) (*Request, error) {
 	var length uint64
 	if err := binary.Read(c, binary.BigEndian, &length); err != nil {
@@ -158,7 +201,8 @@ func (s *ServerM) ConnectT(c net.Conn, req *Request) error {
 
 	req.GetConnect().Id = id
 
-	if err := device.Connect(req); err != nil {
+	err := device.Connect(req)
+	if err != nil {
 		return err
 	}
 

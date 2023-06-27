@@ -13,7 +13,7 @@ make darwin
 ## server
 
 ```shell
-server -h 127.0.0.1:8388
+server -h 127.0.0.1:8388 -r rule.json
 ```
 
 ## client
