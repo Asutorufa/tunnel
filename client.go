@@ -75,6 +75,8 @@ func (c *Client) Forward() {
 }
 
 func (c *Client) Register() error {
+	log.Println("try register to", c.Server)
+
 	conn, err := c.dial()
 	if err != nil {
 		return err
@@ -115,12 +117,13 @@ func (c *Client) Register() error {
 	}
 
 	for {
-		log.Println("start handle")
 		err := c.handle(conn)
-		if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
-			return err
-		} else {
-			log.Println(err)
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
+				return err
+			} else {
+				log.Println(err)
+			}
 		}
 	}
 }
@@ -186,6 +189,9 @@ func (c *Client) handle(lis net.Conn) error {
 			if address == "" {
 				address = "127.0.0.1"
 			}
+
+			log.Println("new request connect to", address, port)
+
 			conn, err := net.Dial("tcp", net.JoinHostPort(address, fmt.Sprint(port)))
 			if err != nil {
 				log.Println(err)
@@ -198,8 +204,6 @@ func (c *Client) handle(lis net.Conn) error {
 				return
 			}
 
-			log.Println("send ok to", req.GetConnect().Id)
-
 			remote, err := c.NewConn(req.GetConnect().Id)
 			if err != nil {
 				SendError(lis, err)
@@ -211,6 +215,12 @@ func (c *Client) handle(lis net.Conn) error {
 			Relay(conn, remote)
 		}()
 
+		return nil
+
+	case Type_Ping:
+		if err := SendOk(lis); err != nil {
+			return err
+		}
 		return nil
 	}
 

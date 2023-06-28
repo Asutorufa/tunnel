@@ -41,9 +41,7 @@ func (s *ServerM) Handle(c net.Conn) error {
 
 	switch req.GetType() {
 	case Type_Register:
-		s.devices.RegisterDevice(req.GetDevice().Uuid, c)
-		if err := SendOk(c); err != nil {
-			c.Close()
+		if err := s.devices.RegisterDevice(req.GetDevice().Uuid, c); err != nil {
 			return err
 		}
 		log.Println("new device:", req.GetDevice().Uuid)
@@ -163,7 +161,7 @@ type Devices struct {
 	devices map[string]*DeviceT
 }
 
-func (d *Devices) RegisterDevice(uuid string, conn net.Conn) {
+func (d *Devices) RegisterDevice(uuid string, conn net.Conn) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -172,7 +170,39 @@ func (d *Devices) RegisterDevice(uuid string, conn net.Conn) {
 		dd.conn.Close()
 		delete(d.devices, uuid)
 	}
-	d.devices[uuid] = &DeviceT{conn: conn}
+
+	device := NewDevice(conn)
+
+	d.devices[uuid] = device
+
+	if err := SendOk(conn); err != nil {
+		conn.Close()
+		return err
+	}
+
+	go func() {
+		ticker := time.NewTicker(time.Second * 15)
+		defer ticker.Stop()
+
+		defer func() {
+			d.mu.Lock()
+			defer d.mu.Unlock()
+			conn.Close()
+
+			if device == d.devices[uuid] {
+				delete(d.devices, uuid)
+			}
+		}()
+
+		for range ticker.C {
+			if err := device.Keepalive(); err != nil {
+				log.Println("send keepalive failed:", err)
+				return
+			}
+		}
+	}()
+
+	return nil
 }
 
 func (d *Devices) Get(uuid string) (*DeviceT, bool) {
@@ -212,7 +242,7 @@ func (s *ServerM) ConnectT(c net.Conn, req *Request) error {
 	case conn := <-ch:
 		log.Println("get resp conn by", req.GetConnect().Id, id)
 		Relay(conn, c)
-	case <-time.After(time.Minute):
+	case <-time.After(time.Second * 10):
 		return fmt.Errorf("timeout")
 	}
 
@@ -224,21 +254,41 @@ type DeviceT struct {
 	conn net.Conn
 }
 
+func NewDevice(conn net.Conn) *DeviceT {
+	return &DeviceT{
+		conn: conn,
+	}
+}
+
+func (d *DeviceT) Keepalive() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if err := SendPing(d.conn); err != nil {
+		return err
+	}
+
+	resp, err := getRequest(d.conn)
+	if err != nil {
+		return err
+	}
+
+	if resp.GetType() == Type_Ok {
+		return nil
+	}
+
+	if resp.GetType() == Type_Error {
+		return errors.New(resp.GetError().GetMsg())
+	}
+
+	return fmt.Errorf("unknown type: %d", resp.GetType())
+}
+
 func (d *DeviceT) Connect(req *Request) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	data, err := proto.Marshal(req)
-	if err != nil {
-		return err
-	}
-
-	err = binary.Write(d.conn, binary.BigEndian, uint64(len(data)))
-	if err != nil {
-		return err
-	}
-
-	_, err = d.conn.Write(data)
+	err := SendRequest(d.conn, req)
 	if err != nil {
 		return err
 	}

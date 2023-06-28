@@ -11,6 +11,7 @@ enum Type {
   Response = 3;
   Ok = 4;
   Error = 5;
+  Ping = 6;
 }
 
 message Device { string uuid = 1; }
@@ -27,6 +28,7 @@ message ConnectResponse {
   uint64 connid = 2;
 }
 
+message PingMsg {}
 message OkMsg {}
 message ErrorMsg { string msg = 1; }
 
@@ -38,5 +40,6 @@ message Request {
     ConnectResponse connect_response = 4;
     OkMsg ok = 5;
     ErrorMsg error = 6;
+    PingMsg ping = 7;
   }
 }
