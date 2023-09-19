@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -35,7 +37,9 @@ func main() {
 	for {
 		start := time.Now()
 		if err := c.Register(); err != nil {
-			log.Println(err)
+			if !errors.Is(err, io.EOF) {
+				log.Println(err)
+			}
 		}
 
 		if time.Since(start) < time.Second*5 {

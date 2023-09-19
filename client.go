@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
 
 	"golang.org/x/net/proxy"
 	"google.golang.org/protobuf/proto"
@@ -83,37 +84,8 @@ func (c *Client) Register() error {
 	}
 	defer conn.Close()
 
-	req := &Request{
-		Type: Type_Register,
-		Payload: &Request_Device{
-			Device: &Device{
-				Uuid: c.UUID,
-			},
-		},
-	}
-
-	data, err := proto.Marshal(req)
-	if err != nil {
+	if err := SendRegister(conn, c.UUID); err != nil {
 		return err
-	}
-
-	binary.Write(conn, binary.BigEndian, uint64(len(data)))
-	_, err = conn.Write(data)
-	if err != nil {
-		return err
-	}
-
-	resp, err := getRequest(conn)
-	if err != nil {
-		return err
-	}
-
-	if resp.Type == Type_Error {
-		return errors.New(resp.GetError().GetMsg())
-	}
-
-	if resp.Type != Type_Ok {
-		return fmt.Errorf("unknown type: %d", resp.Type)
 	}
 
 	for {
@@ -183,36 +155,13 @@ func (c *Client) handle(lis net.Conn) error {
 
 	switch req.GetType() {
 	case Type_Connection:
+		if err := SendOk(lis); err != nil {
+			return err
+		}
 		go func() {
-			port := req.GetConnect().Port
-			address := req.GetConnect().GetAddress()
-			if address == "" {
-				address = "127.0.0.1"
+			if err := c.handleConnect(req); err != nil {
+				log.Println("handle connect failed:", err)
 			}
-
-			log.Println("new request connect to", address, port)
-
-			conn, err := net.Dial("tcp", net.JoinHostPort(address, fmt.Sprint(port)))
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			defer conn.Close()
-
-			if err := SendOk(lis); err != nil {
-				log.Println(err)
-				return
-			}
-
-			remote, err := c.NewConn(req.GetConnect().Id)
-			if err != nil {
-				SendError(lis, err)
-				log.Println(err)
-				return
-			}
-			defer remote.Close()
-
-			Relay(conn, remote)
 		}()
 
 		return nil
@@ -225,4 +174,29 @@ func (c *Client) handle(lis net.Conn) error {
 	}
 
 	return fmt.Errorf("unknown type: %d", req.GetType())
+}
+
+func (c *Client) handleConnect(req *Request) error {
+	port := req.GetConnect().Port
+	address := req.GetConnect().GetAddress()
+	if address == "" {
+		address = "127.0.0.1"
+	}
+
+	log.Println("new request connect to", address, port)
+
+	remote, err := c.NewConn(req.GetConnect().Id)
+	if err != nil {
+		return err
+	}
+	defer remote.Close()
+
+	conn, err := (&net.Dialer{Timeout: time.Second * 4}).Dial("tcp", net.JoinHostPort(address, fmt.Sprint(port)))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	Relay(conn, remote)
+	return nil
 }

@@ -313,10 +313,10 @@ func (d *DeviceT) Connect(req *Request) error {
 
 func Relay(s, c net.Conn) {
 	go func() {
-		io.Copy(s, c)
+		_, _ = io.Copy(s, c)
 		s.Close()
 	}()
 
-	io.Copy(c, s)
+	_, _ = io.Copy(c, s)
 	c.Close()
 }
