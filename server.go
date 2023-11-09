@@ -1,8 +1,8 @@
 package tunnel
 
 import (
+	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -11,6 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Asutorufa/yuhaiin/pkg/net/netapi"
+	"github.com/Asutorufa/yuhaiin/pkg/net/proxy/socks5/server"
+	"github.com/Asutorufa/yuhaiin/pkg/protos/config/listener"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -34,7 +37,7 @@ func NewServerM() *ServerM {
 func (s *ServerM) Handle(c net.Conn) error {
 	log.Println("new request from: ", c.RemoteAddr())
 
-	req, err := getRequest(c)
+	req, err := getRequestReader(c)
 	if err != nil {
 		return err
 	}
@@ -100,7 +103,38 @@ func (c *ServerM) Forward(Rule map[string]Target) {
 	}
 }
 
-func getRequest(c net.Conn) (*Request, error) {
+func (c *ServerM) Socks5Server(host string) (io.Closer, error) {
+	return server.NewServer(&listener.Opts[*listener.Protocol_Socks5]{
+		Protocol: &listener.Protocol_Socks5{
+			Socks5: &listener.Socks5{
+				Host: host,
+			},
+		},
+		Handler: c,
+	}, false)
+}
+
+func (c *ServerM) Stream(ctx context.Context, t *netapi.StreamMeta) {
+	defer t.Src.Close()
+
+	err := c.ConnectT(t.Src, &Request{
+		Type: Type_Connection,
+		Payload: &Request_Connect{
+			Connect: &Connect{
+				Target:  t.Address.Hostname(),
+				Address: "127.0.0.1",
+				Port:    uint32(t.Address.Port().Port()),
+			},
+		},
+	})
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (c *ServerM) Packet(ctx context.Context, pack *netapi.Packet) {}
+
+func getRequestReader(c io.Reader) (*Request, error) {
 	var length uint64
 	if err := binary.Read(c, binary.BigEndian, &length); err != nil {
 		return nil, err
@@ -111,6 +145,10 @@ func getRequest(c net.Conn) (*Request, error) {
 		return nil, err
 	}
 
+	return getRequest(data)
+}
+
+func getRequest(data []byte) (*Request, error) {
 	var req Request
 
 	if err := proto.Unmarshal(data, &req); err != nil {
@@ -249,69 +287,34 @@ func (s *ServerM) ConnectT(c net.Conn, req *Request) error {
 	return nil
 }
 
-type DeviceT struct {
-	mu   sync.Mutex
-	conn net.Conn
-}
+// type DeviceQuicT struct {
+// 	connection quic.Connection
+// }
 
-func NewDevice(conn net.Conn) *DeviceT {
-	return &DeviceT{
-		conn: conn,
-	}
-}
+// func (d *DeviceQuicT) Keepalive() error {
+// 	return d.connection.SendMessage([]byte{0x01})
+// }
 
-func (d *DeviceT) Keepalive() error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+// func (d *DeviceQuicT) Connect(req *Request) (io.ReadWriteCloser, error) {
+// 	conn, err := d.connection.OpenStream()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	if err := SendPing(d.conn); err != nil {
-		return err
-	}
+// 	if err := SendRequest(conn, req); err != nil {
+// 		return nil, err
+// 	}
 
-	resp, err := getRequest(d.conn)
-	if err != nil {
-		return err
-	}
+// 	return conn, nil
+// }
 
-	if resp.GetType() == Type_Ok {
-		return nil
-	}
+type DeviceT struct{ conn net.Conn }
 
-	if resp.GetType() == Type_Error {
-		return errors.New(resp.GetError().GetMsg())
-	}
+func NewDevice(conn net.Conn) *DeviceT        { return &DeviceT{conn} }
+func (d *DeviceT) Keepalive() error           { return SendPing(d.conn) }
+func (d *DeviceT) Connect(req *Request) error { return SendRequest(d.conn, req) }
 
-	return fmt.Errorf("unknown type: %d", resp.GetType())
-}
-
-func (d *DeviceT) Connect(req *Request) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	err := SendRequest(d.conn, req)
-	if err != nil {
-		return err
-	}
-
-	log.Println("wait", req.GetConnect().Id, req.GetConnect().Target, "response")
-
-	resp, err := getRequest(d.conn)
-	if err != nil {
-		return err
-	}
-
-	if resp.GetType() == Type_Ok {
-		return nil
-	}
-
-	if resp.GetType() == Type_Error {
-		return errors.New(resp.GetError().GetMsg())
-	}
-
-	return fmt.Errorf("unknown type: %d", resp.GetType())
-}
-
-func Relay(s, c net.Conn) {
+func Relay(s, c io.ReadWriteCloser) {
 	go func() {
 		_, _ = io.Copy(s, c)
 		s.Close()

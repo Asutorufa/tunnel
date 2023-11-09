@@ -4,12 +4,14 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 
+	"github.com/Asutorufa/yuhaiin/pkg/utils/pool"
 	"google.golang.org/protobuf/proto"
 )
 
-func SendOk(c net.Conn) error {
+func SendOk(c io.Writer) error {
 	return SendRequest(c, &Request{
 		Type:    Type_Ok,
 		Payload: &Request_Ok{Ok: &OkMsg{}},
@@ -31,7 +33,7 @@ func SendError(c net.Conn, err error) error {
 	})
 }
 
-func SendConnect(c net.Conn, r *Connect) error {
+func SendConnect(c io.Writer, r *Connect) error {
 	return SendRequest(c, &Request{
 		Type: Type_Connection,
 		Payload: &Request_Connect{
@@ -40,18 +42,19 @@ func SendConnect(c net.Conn, r *Connect) error {
 	})
 }
 
-func SendRequest(c net.Conn, req *Request) error {
+func SendRequest(c io.Writer, req *Request) error {
+	buf := pool.GetBuffer()
+	defer pool.PutBuffer(buf)
+
 	data, err := proto.Marshal(req)
 	if err != nil {
 		return err
 	}
 
-	err = binary.Write(c, binary.BigEndian, uint64(len(data)))
-	if err != nil {
-		return err
-	}
+	_ = binary.Write(buf, binary.BigEndian, uint64(len(data)))
+	_, _ = buf.Write(data)
 
-	_, err = c.Write(data)
+	_, err = c.Write(buf.Bytes())
 	if err != nil {
 		return err
 	}
@@ -59,14 +62,14 @@ func SendRequest(c net.Conn, req *Request) error {
 	return nil
 }
 
-func SendPing(c net.Conn) error {
+func SendPing(c io.Writer) error {
 	return SendRequest(c, &Request{
 		Type:    Type_Ping,
 		Payload: &Request_Ping{Ping: &PingMsg{}},
 	})
 }
 
-func SendRegister(conn net.Conn, uuid string) error {
+func SendRegister(f func(req []byte) ([]byte, error), uuid string) error {
 	req := &Request{
 		Type: Type_Register,
 		Payload: &Request_Device{
@@ -81,16 +84,12 @@ func SendRegister(conn net.Conn, uuid string) error {
 		return err
 	}
 
-	err = binary.Write(conn, binary.BigEndian, uint64(len(data)))
-	if err != nil {
-		return err
-	}
-	_, err = conn.Write(data)
+	respdata, err := f(data)
 	if err != nil {
 		return err
 	}
 
-	resp, err := getRequest(conn)
+	resp, err := getRequest(respdata)
 	if err != nil {
 		return err
 	}

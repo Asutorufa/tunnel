@@ -50,7 +50,6 @@ windows:
 
 .PHONY: darwin
 darwin:
-
 	$(DARWIN_AMD64) $(GO_BUILD_CMD) -o server_darwin_amd64 $(SERVER)
 	$(DARWIN_AMD64v3) $(GO_BUILD_CMD) -o server_darwin_amd64v3 $(SERVER)
 	$(DARWIN_AMD64) $(GO_BUILD_CMD) -o client_darwin_amd64 $(CLIENT)
