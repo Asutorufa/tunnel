@@ -6,7 +6,7 @@ toolchain go1.21.3
 
 require (
 	github.com/Asutorufa/yuhaiin v0.3.1-rc.11.0.20231109134745-f644900d2767
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.32.0
 )
 
 require (
