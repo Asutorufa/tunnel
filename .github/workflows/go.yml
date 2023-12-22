@@ -33,7 +33,7 @@ jobs:
         fi
 
     - name: upload_${{ matrix.cmd }}_${{ matrix.os[0] }}_${{ matrix.arch }}
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.cmd }}_${{ matrix.os[0] }}_${{ matrix.arch }}
         path: |
