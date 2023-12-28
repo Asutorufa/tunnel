@@ -14,6 +14,7 @@ import (
 	"github.com/Asutorufa/yuhaiin/pkg/net/proxy/socks5/server"
 	"github.com/Asutorufa/yuhaiin/pkg/protos/config/listener"
 	"github.com/Asutorufa/yuhaiin/pkg/protos/statistic"
+	"github.com/Asutorufa/yuhaiin/pkg/utils/relay"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -55,7 +56,7 @@ func (c *Client) Stream(ctx context.Context, t *netapi.StreamMeta) {
 	}
 	defer r.Close()
 
-	Relay(r, t.Src)
+	relay.Relay(r, t.Src)
 }
 
 func (c *Client) Packet(ctx context.Context, pack *netapi.Packet) {}
@@ -84,7 +85,7 @@ func (c *Client) forward(host string, t Target) error {
 			}
 			defer remote.Close()
 
-			Relay(remote, conn)
+			relay.Relay(remote, conn)
 		}()
 	}
 }
@@ -123,6 +124,7 @@ func (c *Client) Register() error {
 	}
 	defer conn.Close()
 
+	conn.SetWriteDeadline(time.Now().Add(time.Minute))
 	if err := SendRegister(func(req []byte) ([]byte, error) {
 		err = binary.Write(conn, binary.BigEndian, uint64(len(req)))
 		if err != nil {
@@ -143,6 +145,20 @@ func (c *Client) Register() error {
 	}, c.UUID); err != nil {
 		return err
 	}
+	conn.SetWriteDeadline(time.Time{})
+
+	go func() {
+		ticker := time.NewTicker(time.Second * 15)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			if err := SendPing(conn); err != nil {
+				log.Println("send ping failed: ", err)
+				conn.Close()
+				return
+			}
+		}
+	}()
 
 	for {
 		err := c.handle(conn)
@@ -158,13 +174,16 @@ func (c *Client) Register() error {
 
 func (c *Client) dial() (net.Conn, error) {
 	if c.S5Dialer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
 		saddr, err := netapi.ParseAddress(statistic.Type_tcp, c.Server)
 		if err != nil {
 			return nil, err
 		}
-		return c.S5Dialer.Conn(context.TODO(), saddr)
+		return c.S5Dialer.Conn(ctx, saddr)
 	}
-	return net.Dial("tcp", c.Server)
+
+	return net.DialTimeout("tcp", c.Server, time.Second*10)
 }
 
 func (c *Client) NewConn(id uint64) (net.Conn, error) {
@@ -223,7 +242,8 @@ _retry:
 		goto _retry
 	}
 
-	return fmt.Errorf("unknown type: %d", req.GetType())
+	log.Printf("unknown type: %d\n", req.GetType())
+	return nil
 }
 
 type Handler interface {
@@ -253,7 +273,7 @@ func (c *Client) handleConnect(req *Request) error {
 	}
 	defer conn.Close()
 
-	Relay(conn, remote)
+	relay.Relay(conn, remote)
 	return nil
 }
 

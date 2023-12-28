@@ -14,6 +14,8 @@ import (
 	"github.com/Asutorufa/yuhaiin/pkg/net/netapi"
 	"github.com/Asutorufa/yuhaiin/pkg/net/proxy/socks5/server"
 	"github.com/Asutorufa/yuhaiin/pkg/protos/config/listener"
+	"github.com/Asutorufa/yuhaiin/pkg/utils/relay"
+	"github.com/Asutorufa/yuhaiin/pkg/utils/syncmap"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -26,14 +28,11 @@ type ServerM struct {
 
 func NewServerM() *ServerM {
 	return &ServerM{
-		devices: &Devices{
-			devices: make(map[string]*DeviceT),
-		},
-		chanm: &Chan{
-			IDChan: make(map[uint64]chan net.Conn),
-		},
+		devices: &Devices{},
+		chanm:   &Chan{},
 	}
 }
+
 func (s *ServerM) Handle(c net.Conn) error {
 	log.Println("new request from: ", c.RemoteAddr())
 
@@ -53,7 +52,7 @@ func (s *ServerM) Handle(c net.Conn) error {
 		return s.ConnectT(c, req)
 	case Type_Response:
 		log.Println("send resp to conn id", req.GetConnectResponse().Connid)
-		go s.chanm.SendChan(req.GetConnectResponse().Connid, c)
+		s.chanm.SendChan(req.GetConnectResponse().Connid, c)
 		return nil
 	}
 
@@ -159,59 +158,46 @@ func getRequest(data []byte) (*Request, error) {
 }
 
 type Chan struct {
-	mu     sync.RWMutex
-	IDChan map[uint64]chan net.Conn
+	IDChan syncmap.SyncMap[uint64, chan net.Conn]
 	ID     atomic.Uint64
 }
 
 func (c *Chan) NewChan() (uint64, chan net.Conn) {
 	id := c.ID.Add(1)
-
 	ch := make(chan net.Conn)
-
-	c.mu.Lock()
-	c.IDChan[id] = ch
-	c.mu.Unlock()
+	c.IDChan.Store(id, ch)
 
 	return id, ch
 }
 
-func (c *Chan) RemoveChan(id uint64) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	delete(c.IDChan, id)
-}
+func (c *Chan) RemoveChan(id uint64) { c.IDChan.Delete(id) }
 
 func (c *Chan) SendChan(id uint64, conn net.Conn) {
-	c.mu.RLock()
-	ch, ok := c.IDChan[id]
+	ch, ok := c.IDChan.Load(id)
 	if !ok {
 		conn.Close()
 		return
 	}
-	c.mu.RUnlock()
-
 	ch <- conn
 }
 
 type Devices struct {
-	mu      sync.RWMutex
-	devices map[string]*DeviceT
+	mu      sync.Mutex
+	devices syncmap.SyncMap[string, *DeviceT]
 }
 
 func (d *Devices) RegisterDevice(uuid string, conn net.Conn) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	dd, ok := d.devices[uuid]
+	dd, ok := d.devices.LoadAndDelete(uuid)
 	if ok {
 		dd.conn.Close()
-		delete(d.devices, uuid)
 	}
 
 	device := NewDevice(conn)
 
-	d.devices[uuid] = device
+	d.devices.Store(uuid, device)
 
 	if err := SendOk(conn); err != nil {
 		conn.Close()
@@ -219,23 +205,28 @@ func (d *Devices) RegisterDevice(uuid string, conn net.Conn) error {
 	}
 
 	go func() {
-		ticker := time.NewTicker(time.Second * 15)
-		defer ticker.Stop()
-
 		defer func() {
 			d.mu.Lock()
 			defer d.mu.Unlock()
-			conn.Close()
-
-			if device == d.devices[uuid] {
-				delete(d.devices, uuid)
+			dv, ok := d.devices.LoadAndDelete(uuid)
+			if ok {
+				dv.conn.Close()
 			}
 		}()
 
-		for range ticker.C {
-			if err := device.Keepalive(); err != nil {
-				log.Println("send keepalive failed:", err)
+		for {
+			req, err := getRequestReader(conn)
+			if err != nil {
+				log.Println("get req failed", err, uuid)
 				return
+			}
+
+			switch req.GetType() {
+			case Type_Ping:
+				if err := device.Keepalive(); err != nil {
+					log.Println("send keepalive failed:", err)
+					return
+				}
 			}
 		}
 	}()
@@ -243,18 +234,10 @@ func (d *Devices) RegisterDevice(uuid string, conn net.Conn) error {
 	return nil
 }
 
-func (d *Devices) Get(uuid string) (*DeviceT, bool) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
-	dd, ok := d.devices[uuid]
-	return dd, ok
-}
-
 func (s *ServerM) ConnectT(c net.Conn, req *Request) error {
 	defer c.Close()
 
-	device, ok := s.devices.Get(req.GetConnect().Target)
+	device, ok := s.devices.devices.Load(req.GetConnect().Target)
 	if !ok {
 		return fmt.Errorf("device %s is not exist", req.GetConnect().Target)
 	}
@@ -279,7 +262,7 @@ func (s *ServerM) ConnectT(c net.Conn, req *Request) error {
 	select {
 	case conn := <-ch:
 		log.Println("get resp conn by", req.GetConnect().Id, id)
-		Relay(conn, c)
+		relay.Relay(conn, c)
 	case <-time.After(time.Second * 10):
 		return fmt.Errorf("timeout")
 	}
@@ -313,13 +296,3 @@ type DeviceT struct{ conn net.Conn }
 func NewDevice(conn net.Conn) *DeviceT        { return &DeviceT{conn} }
 func (d *DeviceT) Keepalive() error           { return SendPing(d.conn) }
 func (d *DeviceT) Connect(req *Request) error { return SendRequest(d.conn, req) }
-
-func Relay(s, c io.ReadWriteCloser) {
-	go func() {
-		_, _ = io.Copy(s, c)
-		s.Close()
-	}()
-
-	_, _ = io.Copy(c, s)
-	c.Close()
-}
