@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Asutorufa/yuhaiin/pkg/net/netapi"
+	"github.com/Asutorufa/yuhaiin/pkg/net/proxy/simple"
 	"github.com/Asutorufa/yuhaiin/pkg/net/proxy/socks5/server"
 	"github.com/Asutorufa/yuhaiin/pkg/protos/config/listener"
 	"github.com/Asutorufa/yuhaiin/pkg/protos/statistic"
@@ -32,14 +33,39 @@ type Client struct {
 }
 
 func (c *Client) Socks5Server(host string) (io.Closer, error) {
-	return server.NewServer(&listener.Opts[*listener.Protocol_Socks5]{
-		Protocol: &listener.Protocol_Socks5{
+	lis, err := simple.NewServer(&listener.Inbound_Tcpudp{
+		Tcpudp: &listener.Tcpudp{
+			Host: host,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	server, err := server.NewServer(
+		&listener.Inbound_Socks5{
 			Socks5: &listener.Socks5{
 				Host: host,
+				Udp:  false,
 			},
-		},
-		Handler: c,
-	}, false)
+		})(lis)
+	if err != nil {
+		lis.Close()
+		return nil, err
+	}
+
+	go func() {
+		for {
+			sm, err := server.AcceptStream()
+			if err != nil {
+				break
+			}
+
+			go c.Stream(context.TODO(), sm)
+		}
+	}()
+
+	return server, nil
 }
 
 func (c *Client) Stream(ctx context.Context, t *netapi.StreamMeta) {
