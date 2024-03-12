@@ -1,4 +1,4 @@
-package tunnel
+package protomsg
 
 import (
 	"encoding/binary"
@@ -15,30 +15,6 @@ func SendOk(c io.Writer) error {
 	return SendRequest(c, &Request{
 		Type:    Type_Ok,
 		Payload: &Request_Ok{Ok: &OkMsg{}},
-	})
-}
-
-func SendError(c net.Conn, err error) error {
-	if err == nil {
-		return SendOk(c)
-	}
-
-	return SendRequest(c, &Request{
-		Type: Type_Error,
-		Payload: &Request_Error{
-			Error: &ErrorMsg{
-				Msg: err.Error(),
-			},
-		},
-	})
-}
-
-func SendConnect(c io.Writer, r *Connect) error {
-	return SendRequest(c, &Request{
-		Type: Type_Connection,
-		Payload: &Request_Connect{
-			Connect: r,
-		},
 	})
 }
 
@@ -69,27 +45,20 @@ func SendPing(c io.Writer) error {
 	})
 }
 
-func SendRegister(f func(req []byte) ([]byte, error), uuid string) error {
-	req := &Request{
+func SendRegister(conn net.Conn, uuid string) error {
+	err := SendRequest(conn, &Request{
 		Type: Type_Register,
 		Payload: &Request_Device{
 			Device: &Device{
 				Uuid: uuid,
 			},
 		},
-	}
-
-	data, err := proto.Marshal(req)
+	})
 	if err != nil {
 		return err
 	}
 
-	respdata, err := f(data)
-	if err != nil {
-		return err
-	}
-
-	resp, err := getRequest(respdata)
+	resp, err := GetRequestReader(conn)
 	if err != nil {
 		return err
 	}
@@ -103,4 +72,34 @@ func SendRegister(f func(req []byte) ([]byte, error), uuid string) error {
 	}
 
 	return nil
+}
+
+func GetRequest(data []byte) (*Request, error) {
+	var req Request
+
+	if err := proto.Unmarshal(data, &req); err != nil {
+		return nil, err
+	}
+
+	return &req, nil
+}
+
+func GetRequestReader(c io.Reader) (*Request, error) {
+	var length uint64
+	if err := binary.Read(c, binary.BigEndian, &length); err != nil {
+		return nil, err
+	}
+
+	data := make([]byte, length)
+	if _, err := io.ReadFull(c, data); err != nil {
+		return nil, err
+	}
+
+	return GetRequest(data)
+}
+
+type Target struct {
+	UUID    string `json:"uuid"`
+	Address string `json:"address"`
+	Port    uint16 `json:"port"`
 }

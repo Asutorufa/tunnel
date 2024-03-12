@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package tunnel;
+package proto;
 
-option go_package = "tunnel/tunnel";
+option go_package = "github.com/Asutorufa/tunnel/pkg/protomsg";
 
 enum Type {
   Resverse = 0;

@@ -5,63 +5,61 @@ import (
 	"errors"
 	"flag"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"os"
 	"time"
-	"tunnel"
 
+	"github.com/Asutorufa/tunnel/pkg/api"
+	tunnelclient "github.com/Asutorufa/tunnel/pkg/client"
+	"github.com/Asutorufa/tunnel/pkg/protomsg"
+	"github.com/Asutorufa/yuhaiin/pkg/net/netapi"
 	s5c "github.com/Asutorufa/yuhaiin/pkg/net/proxy/socks5/client"
 )
 
-type client interface {
-	Socks5Server(host string) (io.Closer, error)
-	Register() error
-	Forward()
-}
-
 func main() {
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 	uuid := flag.String("uuid", "uuid", "uuid, -uuid xedsfd")
 	server := flag.String("s", "127.0.0.1:8388", "server, -s 127.0.0.1:8388")
 	socks5 := flag.String("s5", "", "socks5 proxy, -s5 127.0.0.1:1080")
 	rule := flag.String("r", "rule.json", "rules, -r config.json")
-	quic := flag.Bool("quic", false, "quic, -quic")
 	socks5server := flag.String("s5server", "127.0.0.1:1081", "socks5 server, -s5server 127.0.0.1:1081")
 	flag.Parse()
 
-	var ruleT map[string]tunnel.Target
+	var ruleT map[string]protomsg.Target
 	data, err := os.ReadFile(*rule)
 	if err == nil {
 		if err := json.Unmarshal(data, &ruleT); err != nil {
-			log.Println(err)
+			slog.Error("unmarshal rule", "err", err)
 		}
 	} else {
-		log.Println(err)
+		slog.Error("read rule failed", "err", err)
 	}
 
-	var c client
-
-	if *quic {
-		// c = &tunnel.QuicClient{UUID: *uuid, Server: *server, Socks5: *socks5, Rule: ruleT}
-	} else {
-		host, port, _ := net.SplitHostPort(*socks5)
-		c = &tunnel.Client{UUID: *uuid, Server: *server, S5Dialer: s5c.Dial(host, port, "", ""), Rule: ruleT}
-	}
-
-	s, err := c.Socks5Server(*socks5server)
+	var p netapi.Proxy
+	host, port, err := net.SplitHostPort(*socks5)
 	if err != nil {
-		log.Println(err)
+		slog.Error("split proxy host port", "err", err)
+	} else {
+		p = s5c.Dial(host, port, "", "")
+	}
+
+	c := &tunnelclient.Client{UUID: *uuid, Server: *server, S5Dialer: p}
+
+	s, err := api.Socks5Server(*socks5server, c)
+	if err != nil {
+		slog.Error("new socks5server failed", "err", err)
 	} else {
 		defer s.Close()
 	}
 
-	c.Forward()
+	api.Forward(c, ruleT)
 
 	for {
 		start := time.Now()
 		if err := c.Register(); err != nil {
 			if !errors.Is(err, io.EOF) {
-				log.Println(err)
+				slog.Error("register failed", "err", err)
 			}
 		}
 

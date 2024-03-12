@@ -3,13 +3,18 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"log"
+	"log/slog"
 	"net"
 	"os"
-	"tunnel"
+
+	"github.com/Asutorufa/tunnel/pkg/api"
+	"github.com/Asutorufa/tunnel/pkg/protomsg"
+	tunnelserver "github.com/Asutorufa/tunnel/pkg/server"
 )
 
 func main() {
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+
 	host := flag.String("h", "127.0.0.1:8388", "host, -h 127.0.0.1:8388")
 	rule := flag.String("r", "rule.json", "rules, -r config.json")
 	socks5server := flag.String("s5server", "127.0.0.1:1081", "socks5 server, -s5server 127.0.0.1:1081")
@@ -20,26 +25,26 @@ func main() {
 		panic(err)
 	}
 
-	var Rule map[string]tunnel.Target
+	var Rule map[string]protomsg.Target
 
 	data, err := os.ReadFile(*rule)
 	if err == nil {
 		if err := json.Unmarshal(data, &Rule); err != nil {
-			log.Println(err)
+			slog.Error("Unmarshal rule  failed", "err", err)
 		}
-		log.Println(Rule)
+		slog.Debug("rule", "rule", Rule)
 	} else {
-		log.Println(err)
+		slog.Error("read rule failed", "err", err)
 	}
 
-	log.Println("new server", lis.Addr())
+	slog.Debug("new server", "host", lis.Addr())
 
-	s := tunnel.NewServerM()
+	s := tunnelserver.NewServer()
 
-	s.Forward(Rule)
-	s5, err := s.Socks5Server(*socks5server)
+	api.Forward(s, Rule)
+	s5, err := api.Socks5Server(*socks5server, s)
 	if err != nil {
-		log.Println(err)
+		slog.Error("new socks5 server failed", "err", err)
 	} else {
 		defer s5.Close()
 	}
@@ -52,7 +57,7 @@ func main() {
 
 		go func() {
 			if err := s.Handle(conn); err != nil {
-				log.Println(err)
+				slog.Error("handle failed", "err", err)
 				conn.Close()
 			}
 		}()
