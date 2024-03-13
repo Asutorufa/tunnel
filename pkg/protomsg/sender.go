@@ -90,6 +90,10 @@ func GetRequestReader(c io.Reader) (*Request, error) {
 		return nil, err
 	}
 
+	if length <= 0 || length > 0xffff {
+		return nil, fmt.Errorf("invalid length: %d", length)
+	}
+
 	data := make([]byte, length)
 	if _, err := io.ReadFull(c, data); err != nil {
 		return nil, err

@@ -136,8 +136,7 @@ func (c *Client) handleConnect(req *protomsg.Request) error {
 		return err
 	}
 
-	conn, err := (&net.Dialer{Timeout: time.Second * 4}).
-		Dial("tcp", net.JoinHostPort(address, fmt.Sprint(port)))
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(address, fmt.Sprint(port)), time.Second*5)
 	if err != nil {
 		return err
 	}
