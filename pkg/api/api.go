@@ -9,7 +9,7 @@ import (
 	"github.com/Asutorufa/tunnel/pkg/protomsg"
 	"github.com/Asutorufa/yuhaiin/pkg/net/netapi"
 	"github.com/Asutorufa/yuhaiin/pkg/net/proxy/simple"
-	"github.com/Asutorufa/yuhaiin/pkg/net/proxy/socks5/server"
+	"github.com/Asutorufa/yuhaiin/pkg/net/proxy/socks5"
 	"github.com/Asutorufa/yuhaiin/pkg/protos/config/listener"
 	"github.com/Asutorufa/yuhaiin/pkg/utils/relay"
 )
@@ -77,7 +77,7 @@ func Socks5Server(host string, api Tunnel) (io.Closer, error) {
 		return nil, err
 	}
 
-	server, err := server.NewServer(&listener.Inbound_Socks5{
+	server, err := socks5.NewServer(&listener.Inbound_Socks5{
 		Socks5: &listener.Socks5{
 			Host: host,
 			Udp:  false,

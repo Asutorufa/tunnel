@@ -14,14 +14,14 @@ import (
 	tunnelclient "github.com/Asutorufa/tunnel/pkg/client"
 	"github.com/Asutorufa/tunnel/pkg/protomsg"
 	"github.com/Asutorufa/yuhaiin/pkg/net/netapi"
-	s5c "github.com/Asutorufa/yuhaiin/pkg/net/proxy/socks5/client"
+	"github.com/Asutorufa/yuhaiin/pkg/net/proxy/socks5"
 )
 
 func main() {
 	slog.SetLogLoggerLevel(slog.LevelDebug)
 	uuid := flag.String("uuid", "uuid", "uuid, -uuid xedsfd")
 	server := flag.String("s", "127.0.0.1:8388", "server, -s 127.0.0.1:8388")
-	socks5 := flag.String("s5", "", "socks5 proxy, -s5 127.0.0.1:1080")
+	socks5host := flag.String("s5", "", "socks5 proxy, -s5 127.0.0.1:1080")
 	rule := flag.String("r", "rule.json", "rules, -r config.json")
 	socks5server := flag.String("s5server", "127.0.0.1:1081", "socks5 server, -s5server 127.0.0.1:1081")
 	flag.Parse()
@@ -37,11 +37,11 @@ func main() {
 	}
 
 	var p netapi.Proxy
-	host, port, err := net.SplitHostPort(*socks5)
+	host, port, err := net.SplitHostPort(*socks5host)
 	if err != nil {
 		slog.Error("split proxy host port", "err", err)
 	} else {
-		p = s5c.Dial(host, port, "", "")
+		p = socks5.Dial(host, port, "", "")
 	}
 
 	c := &tunnelclient.Client{UUID: *uuid, Server: *server, S5Dialer: p}
