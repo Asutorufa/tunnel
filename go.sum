@@ -1,5 +1,5 @@
-github.com/Asutorufa/yuhaiin v0.3.5-0.20240321143521-96e1e0b96d71 h1:c7oV0Pe8VEvTXiDXtsyZnT5ehOt5CW8Tnnqan34BdIM=
-github.com/Asutorufa/yuhaiin v0.3.5-0.20240321143521-96e1e0b96d71/go.mod h1:IGzprHMC+HJ8OonhHwXphx28slI0VI1zEX4LR+upH9M=
+github.com/Asutorufa/yuhaiin v0.3.5-0.20240323105154-4a6178aed4d4 h1:pJ+difqAD8+Jq8U4KDy/J1JCCgTKzVXL+i9GPApLFvc=
+github.com/Asutorufa/yuhaiin v0.3.5-0.20240323105154-4a6178aed4d4/go.mod h1:IGzprHMC+HJ8OonhHwXphx28slI0VI1zEX4LR+upH9M=
 github.com/google/go-cmp v0.5.8 h1:e6P7q2lk1O+qJJb4BtCQXlK8vWEO8V1ZeuEdJNOqZyg=
 github.com/google/go-cmp v0.5.8/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 golang.org/x/crypto v0.21.0 h1:X31++rzVUdKhX5sWmSOFZxx8UW/ldWx55cbf08iNAMA=

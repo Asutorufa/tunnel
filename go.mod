@@ -3,7 +3,7 @@ module github.com/Asutorufa/tunnel
 go 1.22.0
 
 require (
-	github.com/Asutorufa/yuhaiin v0.3.5-0.20240321143521-96e1e0b96d71
+	github.com/Asutorufa/yuhaiin v0.3.5-0.20240323105154-4a6178aed4d4
 	google.golang.org/protobuf v1.33.0
 )
 

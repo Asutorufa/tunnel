@@ -13,8 +13,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [amd64, amd64v3]
-        os: [[linux, ""], [darwin, ""], [windows, ".exe"]]
+        env: [
+              [linux, "amd64"], [linux, "amd64v3"], [linux, "arm64"],
+              [darwin, "amd64"], [darwin, "amd64v3"], [darwin, "arm64"], 
+              [windows, "amd64"], [windows, "amd64v3"], [windows, "arm64"],
+            ]
         cmd: [client, server]
 
     steps:
@@ -23,18 +26,20 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '>=1.20.0'
+        check-latest: true
+        go-version-file: 'go.mod'
 
     - name: Build
+      env:
+        GOOS: ${{ matrix.env[0] }}
+        GOARCH: ${{ matrix.env[1] == 'amd64v3' && 'amd64' || matrix.env[1] }}
+        GOAMD64: ${{ matrix.env[1] == 'amd64v3' && 'v3' || '' }}
       run: |
-        make ${{ matrix.os[0] }}
-        if [ ${{ matrix.os[0] }} != "darwin" ]; then
-          upx --lzma --best ${{ matrix.cmd }}_${{ matrix.os[0] }}_${{ matrix.arch }}${{ matrix.os[1] }}
-        fi
+        make ${{ matrix.cmd }}
 
-    - name: upload_${{ matrix.cmd }}_${{ matrix.os[0] }}_${{ matrix.arch }}
+    - name: upload_${{ matrix.cmd }}_${{ matrix.env[0] }}_${{ matrix.env[1] }}
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.cmd }}_${{ matrix.os[0] }}_${{ matrix.arch }}
+        name: ${{ matrix.cmd }}_${{ matrix.env[0] }}_${{ matrix.env[1] }}
         path: |
-          ${{ matrix.cmd }}_${{ matrix.os[0] }}_${{ matrix.arch }}${{ matrix.os[1] }}
+          ${{ matrix.cmd }}${{ matrix.env[0] == 'windows' && '.exe' || '' }}

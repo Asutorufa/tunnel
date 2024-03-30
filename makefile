@@ -29,6 +29,14 @@ ANDROID_ARM64=GOOS=android GOARCH=arm64
 SERVER=-v ./cmd/server/...
 CLIENT=-v ./cmd/client/...
 
+.PHONY: client
+client:
+	$(GO_BUILD_CMD) $(CLIENT)
+
+.PHONY: server
+server:
+	$(GO_BUILD_CMD) $(SERVER)
+
 .PHONY: linux
 linux:
 	$(LINUX_AMD64) $(GO_BUILD_CMD) -o server_linux_amd64 $(SERVER)
