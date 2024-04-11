@@ -45,6 +45,13 @@ func SendPing(c io.Writer) error {
 	})
 }
 
+func SendPong(c io.Writer) error {
+	return SendRequest(c, &Request{
+		Type:    Type_Pong,
+		Payload: &Request_Pong{Pong: &PongMsg{}},
+	})
+}
+
 func SendRegister(conn net.Conn, uuid string) error {
 	err := SendRequest(conn, &Request{
 		Type: Type_Register,

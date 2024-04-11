@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"strings"
 
 	"github.com/Asutorufa/tunnel/pkg/protomsg"
 	"github.com/Asutorufa/yuhaiin/pkg/net/netapi"
@@ -104,12 +105,21 @@ func Socks5Server(host string, api Tunnel) (io.Closer, error) {
 func Stream(ctx context.Context, api Tunnel, t *netapi.StreamMeta) {
 	defer t.Src.Close()
 
+	var address, device string
+	if i := strings.LastIndexByte(t.Address.Hostname(), '.'); i != -1 {
+		address = t.Address.Hostname()[:i]
+		device = t.Address.Hostname()[i+1:]
+	} else {
+		address = "127.0.0.1"
+		device = t.Address.Hostname()
+	}
+
 	conn, err := api.OpenStream(ctx, &protomsg.Request{
 		Type: protomsg.Type_Connection,
 		Payload: &protomsg.Request_Connect{
 			Connect: &protomsg.Connect{
-				Target:  t.Address.Hostname(),
-				Address: "127.0.0.1",
+				Target:  device,
+				Address: address,
 				Port:    uint32(t.Address.Port().Port()),
 			},
 		},

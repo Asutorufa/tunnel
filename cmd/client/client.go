@@ -44,7 +44,12 @@ func main() {
 		p = socks5.Dial(host, port, "", "")
 	}
 
-	c := &tunnelclient.Client{UUID: *uuid, Server: *server, S5Dialer: p}
+	c := &tunnelclient.Client{
+		UUID:     *uuid,
+		Server:   *server,
+		S5Dialer: p,
+		PongChan: make(chan struct{}, 5),
+	}
 
 	s, err := api.Socks5Server(*socks5server, c)
 	if err != nil {

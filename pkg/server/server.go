@@ -148,6 +148,8 @@ func (d *Devices) RegisterDevice(uuid string, conn net.Conn) error {
 			_ = conn.Close()
 		}()
 
+		device.Keepalive()
+
 		for {
 			req, err := protomsg.GetRequestReader(conn)
 			if err != nil {
@@ -157,10 +159,10 @@ func (d *Devices) RegisterDevice(uuid string, conn net.Conn) error {
 
 			switch req.GetType() {
 			case protomsg.Type_Ping:
-				if err := device.Keepalive(); err != nil {
-					slog.Error("send keepalive failed:", "err", err, "uuid", uuid)
-					return
-				}
+				protomsg.SendPong(conn)
+
+			case protomsg.Type_Pong:
+				device.pongChan <- struct{}{}
 			}
 		}
 	}()
@@ -168,8 +170,33 @@ func (d *Devices) RegisterDevice(uuid string, conn net.Conn) error {
 	return nil
 }
 
-type Device struct{ conn net.Conn }
+type Device struct {
+	conn     net.Conn
+	pongChan chan struct{}
+}
 
-func NewDevice(conn net.Conn) *Device                 { return &Device{conn} }
-func (d *Device) Keepalive() error                    { return protomsg.SendPing(d.conn) }
+func NewDevice(conn net.Conn) *Device { return &Device{conn, make(chan struct{}, 5)} }
+func (d *Device) Keepalive() {
+	go func() {
+		ticker := time.NewTicker(time.Second * 15)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			if err := protomsg.SendPing(d.conn); err != nil {
+				slog.Error("send ping failed", "err", err)
+				d.conn.Close()
+				return
+			}
+
+			select {
+			case <-d.pongChan:
+			case <-time.After(time.Second * 10):
+				slog.Error("ping timeout")
+				d.conn.Close()
+				return
+			}
+		}
+	}()
+}
+
 func (d *Device) Connect(req *protomsg.Request) error { return protomsg.SendRequest(d.conn, req) }

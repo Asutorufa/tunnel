@@ -18,6 +18,7 @@ type Client struct {
 	UUID     string
 	Server   string
 	S5Dialer netapi.Proxy
+	PongChan chan struct{}
 }
 
 func (c *Client) OpenStream(ctx context.Context, t *protomsg.Request) (net.Conn, error) {
@@ -62,6 +63,14 @@ func (c *Client) Register() error {
 				conn.Close()
 				return
 			}
+
+			select {
+			case <-c.PongChan:
+			case <-time.After(time.Second * 10):
+				slog.Error("ping timeout")
+				conn.Close()
+				return
+			}
 		}
 	}()
 
@@ -100,7 +109,10 @@ func (c *Client) handle(lis io.ReadWriter) error {
 			}
 		}()
 
+	case protomsg.Type_Pong:
+		c.PongChan <- struct{}{}
 	case protomsg.Type_Ping:
+		protomsg.SendPong(lis)
 	default:
 		slog.Error("unknown request type", "type", req.GetType())
 	}
