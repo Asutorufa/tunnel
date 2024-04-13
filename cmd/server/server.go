@@ -1,15 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"log/slog"
-	"net"
 	"os"
 
 	"github.com/Asutorufa/tunnel/pkg/api"
 	"github.com/Asutorufa/tunnel/pkg/protomsg"
 	tunnelserver "github.com/Asutorufa/tunnel/pkg/server"
+	"github.com/Asutorufa/yuhaiin/pkg/net/dialer"
 )
 
 func main() {
@@ -20,7 +21,7 @@ func main() {
 	socks5server := flag.String("s5server", "127.0.0.1:1081", "socks5 server, -s5server 127.0.0.1:1081")
 	flag.Parse()
 
-	lis, err := net.Listen("tcp", *host)
+	lis, err := dialer.ListenContext(context.TODO(), "tcp", *host)
 	if err != nil {
 		panic(err)
 	}
