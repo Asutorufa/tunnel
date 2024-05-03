@@ -1,11 +1,11 @@
-github.com/Asutorufa/yuhaiin v0.3.5-0.20240413090145-db35add0d2d4 h1:vb6PBuu2Y0OhQJKStHkHZJKS8duOc39Th6mQPFy44HI=
-github.com/Asutorufa/yuhaiin v0.3.5-0.20240413090145-db35add0d2d4/go.mod h1:Y6Pg58uLpuI4UDlVzGLZUywe/4WWoKpJkrWfdZATluM=
+github.com/Asutorufa/yuhaiin v0.3.5 h1:sGd1mbU0HTlw3KbCkEoIk3e9va9vGeK27lxcRM7iSLo=
+github.com/Asutorufa/yuhaiin v0.3.5/go.mod h1:NdmdbTg2HhsJN1/eZvi+LUfak24qSipU5ZDAjSuqlOQ=
 github.com/google/go-cmp v0.5.8 h1:e6P7q2lk1O+qJJb4BtCQXlK8vWEO8V1ZeuEdJNOqZyg=
 github.com/google/go-cmp v0.5.8/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 golang.org/x/crypto v0.22.0 h1:g1v0xeRhjcugydODzvb3mEM9SQ0HGp9s/nh3COQ/C30=
 golang.org/x/crypto v0.22.0/go.mod h1:vr6Su+7cTlO45qkww3VDJlzDn0ctJvRgYbC2NvXHt+M=
-golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8 h1:aAcj0Da7eBAtrTp03QXWvm88pSyOt+UgdZw2BFZ+lEw=
-golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8/go.mod h1:CQ1k9gNrJ50XIzaKCRR2hssIjF07kZFEiieALBM/ARQ=
+golang.org/x/exp v0.0.0-20240416160154-fe59bbe5cc7f h1:99ci1mjWVBWwJiEKYY6jWa4d2nTQVIEhZIptnrVb1XY=
+golang.org/x/exp v0.0.0-20240416160154-fe59bbe5cc7f/go.mod h1:/lliqkxwWAhPjf5oSOIJup2XcqJaw8RGS6k3TGEc7GI=
 golang.org/x/net v0.24.0 h1:1PcaxkF854Fu3+lvBIx5SYn9wRlBzzcnHZSiaFFAb0w=
 golang.org/x/net v0.24.0/go.mod h1:2Q7sJY5mzlzWjKtYUEXSlBWCdyaioyXzRB2RtU8KVE8=
 golang.org/x/sys v0.19.0 h1:q5f1RH2jigJ1MoAWp2KTp3gm5zAGFUTarQZ5U386+4o=
