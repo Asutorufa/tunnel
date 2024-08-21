@@ -10,7 +10,6 @@ import (
 
 	"github.com/Asutorufa/tunnel/pkg/protomsg"
 	"github.com/Asutorufa/yuhaiin/pkg/net/netapi"
-	"github.com/Asutorufa/yuhaiin/pkg/protos/statistic"
 	"github.com/Asutorufa/yuhaiin/pkg/utils/relay"
 )
 
@@ -85,7 +84,7 @@ func (c *Client) connectServer() (net.Conn, error) {
 	if c.S5Dialer != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel()
-		saddr, err := netapi.ParseAddress(statistic.Type_tcp, c.Server)
+		saddr, err := netapi.ParseAddress("tcp", c.Server)
 		if err != nil {
 			return nil, err
 		}

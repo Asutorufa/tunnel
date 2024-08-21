@@ -19,8 +19,8 @@ func SendOk(c io.Writer) error {
 }
 
 func SendRequest(c io.Writer, req *Request) error {
-	buf := pool.GetBuffer()
-	defer pool.PutBuffer(buf)
+	buf := pool.NewBuffer(nil)
+	defer buf.Reset()
 
 	data, err := proto.Marshal(req)
 	if err != nil {

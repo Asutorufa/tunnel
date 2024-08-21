@@ -68,6 +68,11 @@ func forward(api Tunnel, host string, t protomsg.Target) error {
 	}
 }
 
+type HandlerFunc func(*netapi.StreamMeta)
+
+func (h HandlerFunc) HandleStream(s *netapi.StreamMeta) { h(s) }
+func (h HandlerFunc) HandlePacket(*netapi.Packet)       {}
+
 func Socks5Server(host string, api Tunnel) (io.Closer, error) {
 	lis, err := simple.NewServer(&listener.Inbound_Tcpudp{
 		Tcpudp: &listener.Tcpudp{
@@ -80,26 +85,16 @@ func Socks5Server(host string, api Tunnel) (io.Closer, error) {
 
 	server, err := socks5.NewServer(&listener.Inbound_Socks5{
 		Socks5: &listener.Socks5{
-			Host: host,
-			Udp:  false,
+			Udp: false,
 		},
-	})(lis)
+	})(lis, HandlerFunc(func(s *netapi.StreamMeta) {
+		go Stream(context.TODO(), api, s)
+	}))
 	if err != nil {
 		return nil, err
 	}
 
-	go func() {
-		for {
-			sm, err := server.AcceptStream()
-			if err != nil {
-				break
-			}
-
-			go Stream(context.TODO(), api, sm)
-		}
-	}()
-
-	return lis, nil
+	return server, nil
 }
 
 func Stream(ctx context.Context, api Tunnel, t *netapi.StreamMeta) {
@@ -120,7 +115,7 @@ func Stream(ctx context.Context, api Tunnel, t *netapi.StreamMeta) {
 			Connect: &protomsg.Connect{
 				Target:  device,
 				Address: address,
-				Port:    uint32(t.Address.Port().Port()),
+				Port:    uint32(t.Address.Port()),
 			},
 		},
 	})
