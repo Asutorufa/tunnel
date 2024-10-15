@@ -1,6 +1,6 @@
 module github.com/Asutorufa/tunnel
 
-go 1.23.0
+go 1.23.2
 
 require (
 	github.com/Asutorufa/yuhaiin v0.3.7-0.20240821164943-5fa949c83e82
