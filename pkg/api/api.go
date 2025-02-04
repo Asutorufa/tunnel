@@ -13,6 +13,7 @@ import (
 	"github.com/Asutorufa/yuhaiin/pkg/net/proxy/socks5"
 	"github.com/Asutorufa/yuhaiin/pkg/protos/config/listener"
 	"github.com/Asutorufa/yuhaiin/pkg/utils/relay"
+	"google.golang.org/protobuf/proto"
 )
 
 type Tunnel interface {
@@ -74,20 +75,16 @@ func (h HandlerFunc) HandleStream(s *netapi.StreamMeta) { h(s) }
 func (h HandlerFunc) HandlePacket(*netapi.Packet)       {}
 
 func Socks5Server(host string, api Tunnel) (io.Closer, error) {
-	lis, err := simple.NewServer(&listener.Inbound_Tcpudp{
-		Tcpudp: &listener.Tcpudp{
-			Host: host,
-		},
-	})
+	lis, err := simple.NewServer(listener.Tcpudp_builder{
+		Host: proto.String(host),
+	}.Build())
 	if err != nil {
 		return nil, err
 	}
 
-	server, err := socks5.NewServer(&listener.Inbound_Socks5{
-		Socks5: &listener.Socks5{
-			Udp: false,
-		},
-	})(lis, HandlerFunc(func(s *netapi.StreamMeta) {
+	server, err := socks5.NewServer(listener.Socks5_builder{
+		Udp: proto.Bool(false),
+	}.Build(), lis, HandlerFunc(func(s *netapi.StreamMeta) {
 		go Stream(context.TODO(), api, s)
 	}))
 	if err != nil {
