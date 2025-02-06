@@ -4,7 +4,7 @@ go 1.23.3
 
 require (
 	github.com/Asutorufa/yuhaiin v0.3.8
-	google.golang.org/protobuf v1.36.4
+	google.golang.org/protobuf v1.36.5
 )
 
 require (
