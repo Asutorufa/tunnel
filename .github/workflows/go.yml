@@ -38,7 +38,7 @@ jobs:
         make ${{ matrix.cmd }}
 
     - name: upload_${{ matrix.cmd }}_${{ matrix.env[0] }}_${{ matrix.env[1] }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: ${{ matrix.cmd }}_${{ matrix.env[0] }}_${{ matrix.env[1] }}
         path: |
